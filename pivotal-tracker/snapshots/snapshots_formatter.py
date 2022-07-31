@@ -7,7 +7,7 @@ class SnapshotFormatter:
     pass
 
   def format(self, data, type="json", filename=None):
-    print("%d records in the data. type: " % len(data))
+    print("%d records in the data. type: %s" % (len(data), type))
     result = []
     for i in data:
       recordInfo = self.__formatItem(i)
@@ -48,8 +48,6 @@ class SnapshotFormatter:
     snapshotInfo["current"] = self.__getAnalytics(record["current"])
     snapshotInfo["backlog"] = self.__getAnalytics(record["backlog"])
     snapshotInfo["icebox"] = self.__getAnalytics(record["icebox"])
-    # print(json.dumps(snapshotInfo))
-    # print("="*80)
     return snapshotInfo
 
 
