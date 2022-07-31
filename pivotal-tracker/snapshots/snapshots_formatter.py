@@ -22,7 +22,7 @@ class SnapshotFormatter:
         print(json.dumps(result), file=output)
       elif fmt.casefold() == "csv":
         extension = "csv"
-        print("Date,Current - Stories,Current-Points,backlog-stories,backlog-points,icebox-stories,icebox-stories", file=output)
+        print("Date,Current - Stories,Current-Points,backlog-stories,backlog-points,icebox-stories,icebox-points", file=output)
         for r in result:
           print("%s,%d,%d,%d,%d,%d,%d" % (r["date"], r["current"]["count"], r["current"]["points"], r["backlog"]["count"], r["backlog"]["points"], r["icebox"]["count"], r["icebox"]["points"]), file=output)
     else:
