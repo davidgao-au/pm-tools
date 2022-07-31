@@ -1,5 +1,4 @@
 import os
-import json
 import datetime
 import requests
 
@@ -38,10 +37,3 @@ class SnapshotRetriever:
       raise ValueError("Failed to load snapshots. {}".format(response.reason))
 
     return response.json()
-
-
-
-
-
-downloader = SnapshotRetriever()
-downloader.load("2555292")
