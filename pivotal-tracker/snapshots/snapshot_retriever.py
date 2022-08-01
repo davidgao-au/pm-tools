@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+import json
 import datetime
 import requests
 
@@ -36,4 +38,11 @@ class SnapshotRetriever:
     if response.status_code != 200:
       raise ValueError("Failed to load snapshots. {}".format(response.reason))
 
-    return response.json()
+    result = response.json()
+
+
+    f = open("{}/snapshots_{}_{}.json".format(Path.home(),projectId, datetime.datetime.now().strftime("%Y%m%d%H%M%S")), "w")
+    f.write(json.dumps(result))
+    f.close()
+
+    return result

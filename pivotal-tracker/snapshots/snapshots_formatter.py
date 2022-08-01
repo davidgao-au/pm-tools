@@ -1,6 +1,8 @@
 import json
 import io
 from pathlib import Path
+from posixpath import split
+import re
 
 class SnapshotFormatter:
   def __init__(self) -> None:
@@ -31,7 +33,9 @@ class SnapshotFormatter:
     if filename is not None:
       fileBasename = filename
 
-    f = open("{}/{}.{}".format(Path.home(),fileBasename, extension), "w")
+    outputFile = "{}/data/{}.{}".format(Path.home(),fileBasename, extension)
+    print("Output file: %s" % outputFile)
+    f = open(outputFile, "w")
     f.write(output.getvalue())
     f.close()
     output.close()
@@ -45,8 +49,14 @@ class SnapshotFormatter:
       "icebox": {}
     }
     snapshotInfo["date"] = record["date"]
-    snapshotInfo["current"] = self.__getAnalytics(record["current"])
+    splitCurrent = self.__splitCurrent(record["current"])
+
+
+    snapshotInfo["current"] = splitCurrent["working"]
     snapshotInfo["backlog"] = self.__getAnalytics(record["backlog"])
+    snapshotInfo["backlog"]["count"] += splitCurrent["backlog"]["count"]
+    snapshotInfo["backlog"]["points"] += splitCurrent["backlog"]["points"]
+
     snapshotInfo["icebox"] = self.__getAnalytics(record["icebox"])
     return snapshotInfo
 
@@ -68,3 +78,31 @@ class SnapshotFormatter:
 
     return info
 
+  def __splitCurrent(self,currentStories):
+    splitCurrent = {
+      "working": {},
+      "backlog": {}
+    }
+    working = {
+      "count": 0,
+      "points": 0
+    }
+    backlog = {
+      "count": 0,
+      "points": 0
+    }
+
+    workingState=["started","finished","delivered"]
+
+    for s in currentStories:
+      state = s["state"]
+      if state in workingState:
+        working["count"] +=1
+        working["points"] += s.get("estimate",0)
+      else:
+        backlog["count"]+=1
+        backlog["points"]+= s.get("estimate",0)
+    
+    splitCurrent["working"]=working
+    splitCurrent["backlog"]=backlog
+    return splitCurrent
