@@ -24,9 +24,14 @@ class SnapshotFormatter:
         print(json.dumps(result), file=output)
       elif fmt.casefold() == "csv":
         extension = "csv"
-        print("Date,Current - Stories,Current-Points,backlog-stories,backlog-points,icebox-stories,icebox-points", file=output)
+        print("Date,Working Stories,Working Points,backlog-stories,backlog-points,icebox-stories,icebox-points,To-Do Stories,To-Do Points", file=output)
         for r in result:
-          print("%s,%d,%d,%d,%d,%d,%d" % (r["date"], r["current"]["count"], r["current"]["points"], r["backlog"]["count"], r["backlog"]["points"], r["icebox"]["count"], r["icebox"]["points"]), file=output)
+          working = r["working"]
+          backlog = r["backlog"]
+          icebox = r["icebox"]
+          todoCount = backlog["count"]+icebox["count"]
+          todoPoints=backlog["points"] + icebox["points"]
+          print("%s,%d,%d,%d,%d,%d,%d,%d,%d" % (r["date"], working["count"], working["points"], backlog["count"], backlog["points"], icebox["count"], icebox["points"], todoCount,todoPoints), file=output)
     else:
       print(json.dumps(result), file=output)
 
@@ -44,7 +49,7 @@ class SnapshotFormatter:
   def __formatItem(self, record):
     snapshotInfo = {
       "date": "",
-      "current": {},
+      "working": {},
       "backlog": {},
       "icebox": {}
     }
@@ -52,7 +57,7 @@ class SnapshotFormatter:
     splitCurrent = self.__splitCurrent(record["current"])
 
 
-    snapshotInfo["current"] = splitCurrent["working"]
+    snapshotInfo["working"] = splitCurrent["working"]
     snapshotInfo["backlog"] = self.__getAnalytics(record["backlog"])
     snapshotInfo["backlog"]["count"] += splitCurrent["backlog"]["count"]
     snapshotInfo["backlog"]["points"] += splitCurrent["backlog"]["points"]
