@@ -27,6 +27,8 @@ logging.basicConfig(level=logging.INFO)
 class IssueFieldUpdater(JiraClient):
     JQL_BACKLOG_ISSUES = "project = {projectKey} AND type = Story ORDER BY created DESC"
 
+    ISSUE_ESTIMATION_FIELD_ID="customfield_10016"
+
     def __int__(self) -> None:
         JiraClient.__init__()
         pass
@@ -56,29 +58,28 @@ class IssueFieldUpdater(JiraClient):
             logging.debug("%s: No legacy estimation found", issue.key)
         return _story_points
 
-    def update_estimation(self, project_key, estimation_field_id: str):
+    def update_estimation(self, project_key):
+        _jql = self.JQL_BACKLOG_ISSUES.format(projectKey=project_key)
+        self.__update_issues(project_key, _jql, self.__do_update_issue_estimation)
+
+
+    def close_reviews(self, project_key):
+        _jql = f"Project = {project_key} AND type = Review AND status != pass ORDER BY created DESC"
+        self.__update_issues(project_key, _jql, self.__do_close_review)
+
+    def __update_issues(self, project_key: str, jql: str, callback):
         offset = 0
         max_results = 50
-
-        _project = self.jira.project(project_key)
-        _jql = self.JQL_BACKLOG_ISSUES.format(projectKey=_project.key)
         should_stop = False
 
-        while not should_stop:
+        _project = self.jira.project(project_key)
 
-            # _issues = cast(ResultList[Issue], self.jira.search_issues(_jql, startAt=offset, maxResults=max_results))
-            _issues = self.jira.search_issues(_jql, startAt=offset, maxResults=max_results)
+        while not should_stop:
+            _issues = self.jira.search_issues(jql, startAt=offset, maxResults=max_results)
             logging.info(
                 f"Pagination: startAt={_issues.startAt}, maxResult={_issues.maxResults}, total={_issues.total}, isLast={_issues.isLast}")
             for s in _issues:
-                _target_estimation = s.get_field(estimation_field_id)
-                _legacy_story_point = self.__extract_legacy_estimation(s)
-                if _target_estimation is not None:
-                    logging.debug(f"{s.key}: Estimation already available")
-                    continue
-                elif _legacy_story_point is not None:
-                    logging.info("%s: Copying value from legacy estimation: %s", s.key, _legacy_story_point)
-                    self.__do_update_issue_estimation(s, estimation_field_id, _legacy_story_point)
+                callback(s)
             if not _issues.isLast:
                 offset += max_results
                 if offset > _issues.total:
@@ -86,13 +87,36 @@ class IssueFieldUpdater(JiraClient):
             else:
                 should_stop = True
 
-    def __do_update_issue_estimation(self, issue: Issue, estimation_field_id: str, new_value):
-        issue.update(fields={estimation_field_id: new_value}, notify=False)
+    def __do_update_issue_estimation(self, issue: Issue):
+        _target_estimation = issue.get_field(self.ISSUE_ESTIMATION_FIELD_ID)
+        _legacy_story_point = self.__extract_legacy_estimation(issue)
+        if _target_estimation is not None:
+            logging.debug(f"{issue.key}: Estimation already available")
+            return
+        elif _legacy_story_point is not None:
+            logging.info("%s: Copying value from legacy estimation: %s", issue.key, _legacy_story_point)
+            issue.update(fields={self.ISSUE_ESTIMATION_FIELD_ID: _legacy_story_point}, notify=False)
 
+
+    def __do_close_review(self, issue: Issue):
+        try:
+            _issue_links = issue.get_field("issuelinks")
+            for _link in _issue_links:
+                _outward_issue = _link.outwardIssue
+                _o_status = _outward_issue.fields.status.statusCategory.key
+                if "done" == _o_status:
+                    logging.info(f"{issue.key} --> {_outward_issue.key}: outward issue is {_o_status}")
+
+                    # _transitions = self.jira.transitions(_outward_issue.key)
+                    # logging.info("Transitions: %s" % _transitions)
+                    # for _t in _transitions:
+                    #     logging.debug(f"Transition: {_t.id}, {_t.name}")
+                    self.jira.transition_issue(issue.key, "Pass")
+
+        except AttributeError:
+            return
 
 client = IssueFieldUpdater()
 
-myBoard = client.update_estimation("IC", "customfield_10016")
-# print(f"Found board id={myBoard.id}, name={myBoard.name}")
-# client.getEstimationFieldFromBoard(myBoard)
-# rawRecord = client.jira.find("board/{0}/configuration", 51)
+# client.update_estimation("CQ")
+client.close_reviews("IC")
